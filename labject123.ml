@@ -15,6 +15,9 @@ end
 
 module Evaluator: Evaluatish =
 struct
+  exception EvaluatorError of string
+
+  let evaluate _ = raise (EvaluatorError "Evaluator not implemented")
 end
 
 module type Scannerish =
@@ -31,6 +34,51 @@ end
 
 module Scanner: Scannerish =
 struct
+  type token =
+    CloseParenToken |
+    EndToken |
+    NumberToken of int |
+    OpenParenToken |
+    SymbolToken of string
+
+  let input = ref stdin
+  let ch = ref ' '
+
+  let nextChar () =
+    try ch := input_char !input
+    with End_of_file -> ch := '\000'
+
+  let initialize path =
+    input := open_in path;
+    nextChar ()
+
+  let rec nextToken () =
+    match !ch with
+    | '\000' -> EndToken
+    | ' ' | '\n' -> nextChar (); nextToken ()
+    | '(' -> nextChar (); OpenParenToken
+    | ')' -> nextChar (); CloseParenToken
+    | ';' -> while !ch <> '\n' && !ch <> '\000' do nextChar () done; nextToken ()
+    | '-' | '0' .. '9' as d ->
+        let buffer = Buffer.create 10 in
+        Buffer.add_char buffer d;
+        let rec number () =
+          match !ch with
+          | '0' .. '9' -> Buffer.add_char buffer !ch; nextChar (); number ()
+          | _ -> ()
+        in
+        nextChar (); number ();
+        NumberToken (int_of_string (Buffer.contents buffer))
+    | _ ->
+        let buffer = Buffer.create 10 in
+        Buffer.add_char buffer !ch;
+        let rec symbol () =
+          match !ch with
+          | ' ' | '\n' | '\000' | '(' | ')' -> ()
+          | _ -> Buffer.add_char buffer !ch; nextChar (); symbol ()
+        in
+        nextChar (); symbol ();
+        SymbolToken (Buffer.contents buffer)
 end
 
 module type Parsish =
@@ -150,8 +198,6 @@ struct
             Printf.printf "%s: Print error\n" filename; loop()
         | _ ->
             Printf.printf "%s: Unknown error\n" filename; loop()
-      in
-      loop()
     with
     | Sys_error msg -> Printf.printf "File error: %s\n" msg
     | _ -> Printf.printf "%s: Initialization error\n" filename
@@ -160,3 +206,4 @@ struct
 end
 
 let () = Lisp.repl ()
+
