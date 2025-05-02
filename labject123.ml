@@ -1,30 +1,56 @@
-type thing =
-  | Closure of thing * thing * environment
-  | Cons of thing * thing
-  | Nil
-  | Number of int
-  | Primitive of (thing -> environment -> thing)
-  | Symbol of string
-and environment = (string * thing) list
+type thing = 
+  | Closure of thing * thing * environment 
+  | Cons of thing * thing 
+  | Nil 
+  | Number of int 
+  | Primitive of (thing -> environment -> thing) 
+  | Symbol of string 
+and environment = (string * thing) list ;;
+
+module type Evaluatish =
+sig
+  val evaluate: thing -> thing ;;
+  exception EvaluatorError of string ;;
+end ;;
+
+module Evaluator: Evaluatish =
+struct
+end ;;
+
+module type Scannerish =
+sig
+  type token =
+    CloseParenToken |
+    EndToken |
+    NumberToken of int |
+    OpenParenToken |
+    SymbolToken of string ;;
+  val initialize: string -> unit ;;
+  val nextToken: unit -> token ;;
+end ;;
+
+module Scanner: Scannerish =
+struct
+end ;;
 
 module type Parsish =
 sig
-  exception Can'tParse of string
-  val initialize : string -> unit
-  val nextThing : unit -> thing
-end
+  exception Can'tParse of string ;;
+  val initialize : string -> unit ;;
+  val nextThing : unit -> thing ;;
+end ;;
 
 module Parser: Parsish =
 struct
-  exception Can'tParse of string
-  let token = ref (Scanner.EndToken)
+  exception Can'tParse of string ;;
+  let token = ref (Scanner.EndToken) ;;
 
   let initialize path =
     Scanner.initialize path;
-    token := Scanner.nextToken ()
+    token := Scanner.nextToken () ;;
 
   let nextToken () = 
-    token := Scanner.nextToken ()
+    token := Scanner.nextToken () ;;
 
   let rec nextThing () =
     match !token with
@@ -56,24 +82,24 @@ struct
     | _ ->
         let head = nextThing () in
         let tail = nextThings () in
-        Cons (head, tail)
-end
+        Cons (head, tail) ;;
+end ;;
 
 module type Printish =
 sig
-  exception BadThing
-  val printThing : thing -> unit
-end
+  exception BadThing ;;
+  val printThing : thing -> unit ;;
+end ;;
 
 module Printer: Printish =
 struct
-  open Printf
-  exception BadThing
+  open Printf ;;
+  exception BadThing ;;
 
   let rec is_list = function
     | Nil -> true
     | Cons (_, t) -> is_list t
-    | _ -> false
+    | _ -> false ;;
 
   let rec printingThing thing =
     match thing with
@@ -86,21 +112,24 @@ struct
         if is_list thing then (
           printf "(";
           printingThings thing;
-          printf ")"
-        ) else (
+          printf ")")
+        else (
           let rec print_dotted = function
             | Cons (a, b) ->
                 printingThing a;
                 (match b with
                 | Nil -> ()
-                | Cons _ -> printf " "; print_dotted b
-                | _ -> printf " . "; printingThing b)
+                | Cons _ -> 
+                    printf " "; 
+                    print_dotted b
+                | _ -> 
+                    printf " . "; 
+                    printingThing b)
             | _ -> ()
           in
           printf "(";
           print_dotted thing;
-          printf ")"
-        )
+          printf ")") ;;
 
   and printingThings things =
     match things with
@@ -110,49 +139,57 @@ struct
         printingThing car;
         printf " ";
         printingThings cdr
-    | _ -> printingThing things
+    | _ -> printingThing things ;;
 
   let printThing thing =
-    printingThing thing;
-    printf "\n"
-end
+    try printingThing thing; printf "\n"
+    with _ -> raise BadThing ;;
+end ;;
 
 module type Lispish =
 sig
-  val repl : unit -> unit
-end
+  val repl : unit -> unit ;;
+end ;;
 
-(* LISP. Read Lisp programs from files and execute them. *)
 module Lisp: Lispish =
 struct
   let commandArguments etc =
     Arg.parse
-      [ ("", (Arg.String (fun _ -> ())), "Zero or more arguments expected") ]
+      [ ("", (Arg.String (fun _ -> ()), "Zero or more arguments expected") ]
       etc
-      "Argument expected"
+      "Argument expected" ;;
 
   let repl () =
-    let handle_file filename =
+    let process_file filename =
       try
         Parser.initialize filename;
         let rec loop () =
-          let expr = Parser.nextThing () in
-          match expr with
-          | Symbol "end" -> ()
-          | _ ->
-              let value = Evaluator.evaluate expr in
-              Printer.printThing value;
+          try
+            let expr = Parser.nextThing () in
+            if expr = Symbol "end" then ()
+            else
+              let result = Evaluator.evaluate expr in
+              Printer.printThing result;
               loop ()
-        in loop ()
-      with
-      | Evaluator.EvaluatorError s ->
-          Printf.printf "%s: Evaluator error %s\n" filename s
-      | Parser.Can'tParse s ->
-          Printf.printf "%s: Parser error %s\n" filename s
-      | Printer.BadThing ->
-          Printf.printf "%s: Printer error\n" filename
-      | _ ->
-          Printf.printf "%s: Internal error\n" filename
+          with
+          | Evaluator.EvaluatorError s ->
+              Printf.printf "%s: Evaluator error %s\n" filename s;
+              loop ()
+          | Parser.Can'tParse s ->
+              Printf.printf "%s: Parser error %s\n" filename s;
+              loop ()
+          | Printer.BadThing ->
+              Printf.printf "%s: Printer error\n" filename;
+              loop ()
+          | _ ->
+              Printf.printf "%s: Internal error\n" filename;
+              loop ()
+        in
+        loop ()
+      with exn ->
+        Printf.printf "%s: Initialization error\n" filename
     in
-    commandArguments handle_file
-end
+    commandArguments process_file ;;
+end ;;
+
+Lisp.repl () ;;
