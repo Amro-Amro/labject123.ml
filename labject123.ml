@@ -1,3 +1,5 @@
+(* labject123.ml - Final Corrected Version *)
+
 type thing = 
   | Closure of thing * thing * environment 
   | Cons of thing * thing 
@@ -18,26 +20,30 @@ struct
   exception EvaluatorError of string
   let oops msg = raise (EvaluatorError msg)
   
-  let rec evaluate thing =
+  let rec eval thing env =
     match thing with
     | Cons(func, args) ->
-        let evaluated_func = evaluate func in
+        let evaluated_func = eval func env in
         (match evaluated_func with
-         | Primitive f -> f args []
-         | Closure(params, body, env) ->
+         | Primitive f -> f args env
+         | Closure(params, body, closure_env) ->
              let rec bind_params params args env =
                match params, args with
                | Nil, Nil -> env
                | Cons(Symbol p, ps), Cons(a, as') ->
-                   let evaluated_arg = evaluate a in
+                   let evaluated_arg = eval a env in
                    bind_params ps as' ((p, evaluated_arg) :: env)
                | _ -> oops "Parameter/argument mismatch"
              in
-             let new_env = bind_params params args env in
-             evaluate body new_env
+             let new_env = bind_params params args closure_env in
+             eval body new_env
          | _ -> oops "Not a function")
-    | Symbol s -> oops ("Unbound symbol: " ^ s)
+    | Symbol s -> 
+        (try List.assoc s env 
+         with Not_found -> oops ("Unbound symbol: " ^ s))
     | x -> x
+
+  let evaluate thing = eval thing []
 end
 
 module Scanner =
@@ -57,8 +63,32 @@ struct
     ch := input_char !input
 
   let rec nextToken() =
-    (* Your existing scanner implementation *)
-    (* ... (preserve your exact scanner code) ... *)
+    match !ch with
+    | ' ' | '\t' | '\n' -> 
+        (while List.mem !ch [' '; '\t'; '\n'] do 
+           ch := input_char !input 
+         done; 
+         nextToken())
+    | '(' -> ch := input_char !input; OpenParenToken
+    | ')' -> ch := input_char !input; CloseParenToken
+    | '0'..'9' | '-' ->
+        let buffer = Buffer.create 16 in
+        Buffer.add_char buffer !ch;
+        (try while true do
+           ch := input_char !input;
+           if !ch >= '0' && !ch <= '9' 
+           then Buffer.add_char buffer !ch
+           else raise Exit
+         done with Exit -> ());
+        NumberToken (int_of_string (Buffer.contents buffer))
+    | _ ->
+        let buffer = Buffer.create 16 in
+        while !ch <> ' ' && !ch <> '\t' && !ch <> '\n' &&
+              !ch <> '(' && !ch <> ')' && !ch <> ';' do
+          Buffer.add_char buffer !ch;
+          ch := input_char !input
+        done;
+        SymbolToken (Buffer.contents buffer)
 end
 
 module type Parsish =
