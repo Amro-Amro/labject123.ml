@@ -1,3 +1,12 @@
+type thing =
+  | Closure of thing * thing * environment
+  | Cons of thing * thing
+  | Nil
+  | Number of int
+  | Primitive of (thing -> environment -> thing)
+  | Symbol of string
+and environment = (string * thing) list
+
 module type Parsish =
 sig
   exception Can'tParse of string
