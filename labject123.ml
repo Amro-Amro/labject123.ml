@@ -1,5 +1,3 @@
-(* labject123.ml - Complete Lisp Interpreter *)
-
 type thing = 
   | Closure of thing * thing * environment 
   | Cons of thing * thing 
@@ -17,7 +15,6 @@ end
 
 module Evaluator: Evaluatish =
 struct
-  (* ... Keep existing Evaluator implementation ... *)
 end
 
 module type Scannerish =
@@ -34,7 +31,6 @@ end
 
 module Scanner: Scannerish =
 struct
-  (* ... Keep existing Scanner implementation ... *)
 end
 
 module type Parsish =
