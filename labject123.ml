@@ -1,3 +1,5 @@
+(* labject123.ml - Complete Lisp Interpreter *)
+
 type thing = 
   | Closure of thing * thing * environment 
   | Cons of thing * thing 
@@ -16,18 +18,38 @@ end
 module Evaluator: Evaluatish =
 struct
   exception EvaluatorError of string
-
-  let evaluate _ = raise (EvaluatorError "Evaluator not implemented")
+  let oops msg = raise (EvaluatorError msg)
+  
+  let rec evaluate = function
+    | Cons(func, args) -> 
+        (match evaluate func with
+         | Primitive f -> f args []
+         | Closure _ as closure -> 
+             let rec apply = function
+               | (Closure (params, body, env), args) ->
+                   let rec bind params args env =
+                     match params, args with
+                     | Nil, Nil -> env
+                     | Cons(Symbol p, ps), Cons(a, as') ->
+                         bind ps as' ((p, evaluate a) :: env)
+                     | _ -> oops "Argument mismatch"
+                   in
+                   evaluate body (bind params args env)
+               | _ -> oops "Not a function"
+             in apply (closure, args)
+        | _ -> oops "Invalid function call")
+    | Symbol s -> oops ("Unbound symbol: " ^ s)
+    | x -> x
 end
 
 module type Scannerish =
 sig
   type token =
-    CloseParenToken |
-    EndToken |
-    NumberToken of int |
-    OpenParenToken |
-    SymbolToken of string
+    CloseParenToken 
+    | EndToken 
+    | NumberToken of int 
+    | OpenParenToken 
+    | SymbolToken of string
   val initialize: string -> unit
   val nextToken: unit -> token
 end
@@ -35,49 +57,45 @@ end
 module Scanner: Scannerish =
 struct
   type token =
-    CloseParenToken |
-    EndToken |
-    NumberToken of int |
-    OpenParenToken |
-    SymbolToken of string
+    CloseParenToken 
+    | EndToken 
+    | NumberToken of int 
+    | OpenParenToken 
+    | SymbolToken of string
 
-  let input = ref stdin
   let ch = ref ' '
-
-  let nextChar () =
-    try ch := input_char !input
-    with End_of_file -> ch := '\000'
+  let input = ref stdin
 
   let initialize path =
     input := open_in path;
-    nextChar ()
+    ch := input_char !input
 
-  let rec nextToken () =
+  let rec nextToken() =
     match !ch with
-    | '\000' -> EndToken
-    | ' ' | '\n' -> nextChar (); nextToken ()
-    | '(' -> nextChar (); OpenParenToken
-    | ')' -> nextChar (); CloseParenToken
-    | ';' -> while !ch <> '\n' && !ch <> '\000' do nextChar () done; nextToken ()
-    | '-' | '0' .. '9' as d ->
-        let buffer = Buffer.create 10 in
-        Buffer.add_char buffer d;
-        let rec number () =
-          match !ch with
-          | '0' .. '9' -> Buffer.add_char buffer !ch; nextChar (); number ()
-          | _ -> ()
-        in
-        nextChar (); number ();
+    | ' ' | '\t' | '\n' -> 
+        (while List.mem !ch [' '; '\t'; '\n'] do 
+           ch := input_char !input 
+         done; 
+         nextToken())
+    | '(' -> ch := input_char !input; OpenParenToken
+    | ')' -> ch := input_char !input; CloseParenToken
+    | '0'..'9' | '-' ->
+        let buffer = Buffer.create 16 in
+        Buffer.add_char buffer !ch;
+        (try while true do
+           ch := input_char !input;
+           if !ch >= '0' && !ch <= '9' 
+           then Buffer.add_char buffer !ch
+           else raise Exit
+         done with Exit -> ());
         NumberToken (int_of_string (Buffer.contents buffer))
     | _ ->
-        let buffer = Buffer.create 10 in
-        Buffer.add_char buffer !ch;
-        let rec symbol () =
-          match !ch with
-          | ' ' | '\n' | '\000' | '(' | ')' -> ()
-          | _ -> Buffer.add_char buffer !ch; nextChar (); symbol ()
-        in
-        nextChar (); symbol ();
+        let buffer = Buffer.create 16 in
+        while !ch <> ' ' && !ch <> '\t' && !ch <> '\n' &&
+              !ch <> '(' && !ch <> ')' && !ch <> ';' do
+          Buffer.add_char buffer !ch;
+          ch := input_char !input
+        done;
         SymbolToken (Buffer.contents buffer)
 end
 
@@ -198,6 +216,8 @@ struct
             Printf.printf "%s: Print error\n" filename; loop()
         | _ ->
             Printf.printf "%s: Unknown error\n" filename; loop()
+      in
+      loop()
     with
     | Sys_error msg -> Printf.printf "File error: %s\n" msg
     | _ -> Printf.printf "%s: Initialization error\n" filename
