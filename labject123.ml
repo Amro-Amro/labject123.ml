@@ -3,7 +3,7 @@ sig
   exception Can'tParse of string
   val initialize : string -> unit
   val nextThing : unit -> thing
-end ;;
+end
 
 module Parser: Parsish =
 struct
@@ -48,16 +48,17 @@ struct
         let head = nextThing () in
         let tail = nextThings () in
         Cons (head, tail)
-end ;;
+end
 
 module type Printish =
 sig
   exception BadThing
   val printThing : thing -> unit
-end ;;
+end
 
 module Printer: Printish =
 struct
+  open Printf
   exception BadThing
 
   let rec is_list = function
@@ -69,22 +70,12 @@ struct
     match thing with
     | Closure _ -> printf "[Closure]"
     | Primitive _ -> printf "[Primitive]"
-    | Number n -> printf "%d" n
+    | Number n -> printf "%i" n
     | Symbol s -> printf "%s" s
     | Nil -> printf "nil"
     | Cons _ ->
         if is_list thing then (
           printf "(";
-          let rec printingThings = function
-            | Nil -> ()
-            | Cons (car, Nil) ->
-                printingThing car
-            | Cons (car, cdr) ->
-                printingThing car;
-                printf " ";
-                printingThings cdr
-            | _ -> raise BadThing
-          in
           printingThings thing;
           printf ")"
         ) else (
@@ -93,64 +84,66 @@ struct
                 printingThing a;
                 (match b with
                 | Nil -> ()
-                | Cons _ ->
-                    printf " ";
-                    print_dotted b
-                | _ ->
-                    printf " . ";
-                    printingThing b)
-            | _ -> raise BadThing
+                | Cons _ -> printf " "; print_dotted b
+                | _ -> printf " . "; printingThing b)
+            | _ -> ()
           in
           printf "(";
           print_dotted thing;
           printf ")"
         )
 
+  and printingThings things =
+    match things with
+    | Nil -> ()
+    | Cons (car, Nil) -> printingThing car
+    | Cons (car, cdr) ->
+        printingThing car;
+        printf " ";
+        printingThings cdr
+    | _ -> printingThing things
+
   let printThing thing =
-    try
-      printingThing thing;
-      printf "\n"
-    with _ -> raise BadThing
-end ;;
+    printingThing thing;
+    printf "\n"
+end
 
 module type Lispish =
 sig
   val repl : unit -> unit
-end ;;
+end
 
+(* LISP. Read Lisp programs from files and execute them. *)
 module Lisp: Lispish =
 struct
   let commandArguments etc =
-    Arg.parse [] etc ""
+    Arg.parse
+      [ ("", (Arg.String (fun _ -> ())), "Zero or more arguments expected") ]
+      etc
+      "Argument expected"
 
   let repl () =
-    let process_file filename =
+    let handle_file filename =
       try
         Parser.initialize filename;
         let rec loop () =
-          try
-            let expr = Parser.nextThing () in
-            if expr = Symbol "end" then ()
-            else
-              let result = Evaluator.evaluate expr in
-              Printer.printThing result;
+          let expr = Parser.nextThing () in
+          match expr with
+          | Symbol "end" -> ()
+          | _ ->
+              let value = Evaluator.evaluate expr in
+              Printer.printThing value;
               loop ()
-          with
-          | Evaluator.EvaluatorError s ->
-              Printf.printf "%s: Evaluator error %s\n" filename s
-          | Parser.Can'tParse s ->
-              Printf.printf "%s: Parser error %s\n" filename s
-          | Printer.BadThing ->
-              Printf.printf "%s: Printer error\n" filename
-          | exn ->
-              Printf.printf "%s: Internal error\n" filename
-        in
-        loop ()
-      with exn ->
-        Printf.printf "%s: Internal error\n" filename
+        in loop ()
+      with
+      | Evaluator.EvaluatorError s ->
+          Printf.printf "%s: Evaluator error %s\n" filename s
+      | Parser.Can'tParse s ->
+          Printf.printf "%s: Parser error %s\n" filename s
+      | Printer.BadThing ->
+          Printf.printf "%s: Printer error\n" filename
+      | _ ->
+          Printf.printf "%s: Internal error\n" filename
     in
-    commandArguments process_file
-end ;;
-
-(* ... existing code at the end ... *)
-Lisp.repl () ;;
+    commandArguments handle_file
+end
