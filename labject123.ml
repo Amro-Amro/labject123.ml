@@ -159,4 +159,4 @@ struct
   let repl() = commandArguments handle_file
 end
 
-Lisp.repl()
+let () = Lisp.repl ()
