@@ -1,5 +1,3 @@
-(* labject123.ml - Complete Lisp Interpreter *)
-
 type thing = 
   | Closure of thing * thing * environment 
   | Cons of thing * thing 
@@ -18,49 +16,31 @@ end
 module Evaluator: Evaluatish =
 struct
   exception EvaluatorError of string
-  let oops msg = raise (EvaluatorError msg)
   
   let rec evaluate = function
-    | Cons(func, args) -> 
+    | Cons(func, args) ->
         (match evaluate func with
          | Primitive f -> f args []
-         | Closure _ as closure -> 
-             let rec apply = function
-               | (Closure (params, body, env), args) ->
-                   let rec bind params args env =
-                     match params, args with
-                     | Nil, Nil -> env
-                     | Cons(Symbol p, ps), Cons(a, as') ->
-                         bind ps as' ((p, evaluate a) :: env)
-                     | _ -> oops "Argument mismatch"
-                   in
-                   evaluate body (bind params args env)
-               | _ -> oops "Not a function"
-             in apply (closure, args)
-        | _ -> oops "Invalid function call")
-    | Symbol s -> oops ("Unbound symbol: " ^ s)
+         | Closure(params, body, env) ->
+             let rec apply args env =
+               match params, args with
+               | Nil, Nil -> evaluate body
+               | Cons(Symbol p, ps), Cons(a, as') ->
+                   apply as' ((p, evaluate a) :: env)
+               | _ -> raise (EvaluatorError "Argument mismatch")
+             in apply args env
+         | _ -> raise (EvaluatorError "Not a function"))
+    | Symbol s -> raise (EvaluatorError ("Unbound symbol: " ^ s))
     | x -> x
 end
 
-module type Scannerish =
-sig
-  type token =
-    CloseParenToken 
-    | EndToken 
-    | NumberToken of int 
-    | OpenParenToken 
-    | SymbolToken of string
-  val initialize: string -> unit
-  val nextToken: unit -> token
-end
-
-module Scanner: Scannerish =
+module Scanner =
 struct
   type token =
-    CloseParenToken 
-    | EndToken 
-    | NumberToken of int 
-    | OpenParenToken 
+    | CloseParenToken
+    | EndToken
+    | NumberToken of int
+    | OpenParenToken
     | SymbolToken of string
 
   let ch = ref ' '
@@ -142,6 +122,7 @@ end
 module Printer: Printish =
 struct
   open Printf
+  
   exception BadThing
 
   let rec is_list = function
@@ -153,37 +134,38 @@ struct
     match thing with
     | Closure _ -> printf "[Closure]"
     | Primitive _ -> printf "[Primitive]"
-    | Number n -> printf "%d" n
+    | Number n -> printf "%i" n
     | Symbol s -> printf "%s" s
     | Nil -> printf "nil"
-    | Cons _ ->
-        if is_list thing then (
+    | Cons(car, cdr) ->
+        let print_list () =
           printf "(";
-          let rec printingThings = function
-            | Nil -> ()
-            | Cons(h, Nil) -> printingThing h
-            | Cons(h, t) -> printingThing h; printf " "; printingThings t
-            | _ -> raise BadThing
+          let rec helper first = function
+            | Cons(h, t) ->
+                (if not first then printf " ");
+                printingThing h;
+                helper false t
+            | Nil -> printf ")"
+            | _ -> 
+                printf " . ";
+                printingThing cdr;
+                printf ")"
           in
-          printingThings thing;
-          printf ")")
+          printingThing car;
+          helper true cdr
+        in
+        if is_list cdr then print_list ()
         else (
-          let rec print_dotted = function
-            | Cons(a, b) ->
-                printingThing a;
-                (match b with
-                | Nil -> ()
-                | Cons _ -> printf " "; print_dotted b
-                | _ -> printf " . "; printingThing b)
-            | _ -> raise BadThing
-          in
           printf "(";
-          print_dotted thing;
-          printf ")")
+          printingThing car;
+          printf " . ";
+          printingThing cdr;
+          printf ")"
+        )
 
   let printThing thing =
-    try printingThing thing; print_newline()
-    with _ -> raise BadThing
+    printingThing thing;
+    printf "\n"
 end
 
 module type Lispish =
@@ -209,13 +191,13 @@ struct
             loop()
         with
         | Evaluator.EvaluatorError msg ->
-            Printf.printf "%s: Eval error - %s\n" filename msg; loop()
+            Printf.printf "%s: Evaluator error %s\n" filename msg; loop()
         | Parser.Can'tParse msg ->
-            Printf.printf "%s: Parse error - %s\n" filename msg; loop()
+            Printf.printf "%s: Parser error %s\n" filename msg; loop()
         | Printer.BadThing ->
-            Printf.printf "%s: Print error\n" filename; loop()
+            Printf.printf "%s: Printer error\n" filename; loop()
         | _ ->
-            Printf.printf "%s: Unknown error\n" filename; loop()
+            Printf.printf "%s: Internal error\n" filename; loop()
       in
       loop()
     with
@@ -226,4 +208,3 @@ struct
 end
 
 let () = Lisp.repl ()
-
