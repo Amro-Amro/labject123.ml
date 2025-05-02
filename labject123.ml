@@ -1,5 +1,3 @@
-(* labject123.ml - Final Corrected Version *)
-
 type thing = 
   | Closure of thing * thing * environment 
   | Cons of thing * thing 
@@ -20,30 +18,29 @@ struct
   exception EvaluatorError of string
   let oops msg = raise (EvaluatorError msg)
   
-  let rec eval thing env =
-    match thing with
+  let rec eval env = function
     | Cons(func, args) ->
-        let evaluated_func = eval func env in
+        let evaluated_func = eval env func in
         (match evaluated_func with
          | Primitive f -> f args env
          | Closure(params, body, closure_env) ->
-             let rec bind_params params args env =
-               match params, args with
+             let rec bind_params ps as' env =
+               match ps, as' with
                | Nil, Nil -> env
                | Cons(Symbol p, ps), Cons(a, as') ->
-                   let evaluated_arg = eval a env in
+                   let evaluated_arg = eval env a in
                    bind_params ps as' ((p, evaluated_arg) :: env)
                | _ -> oops "Parameter/argument mismatch"
              in
              let new_env = bind_params params args closure_env in
-             eval body new_env
+             eval new_env body
          | _ -> oops "Not a function")
     | Symbol s -> 
         (try List.assoc s env 
          with Not_found -> oops ("Unbound symbol: " ^ s))
     | x -> x
 
-  let evaluate thing = eval thing []
+  let evaluate thing = eval [] thing
 end
 
 module Scanner =
@@ -169,10 +166,9 @@ struct
           printf ")")
 
   let printThing thing =
-    try
-      printingThing thing;
-      printf "\n"
-    with _ -> raise BadThing
+    (try printingThing thing
+     with _ -> raise BadThing);
+    printf "\n"
 end
 
 module type Lispish =
