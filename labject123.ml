@@ -40,7 +40,6 @@ module Evaluator : Evaluatish = struct
         oops ("Unbound name " ^ name)))
 
   (* CORE EVALUATION LOGIC *)
-  (* CORE EVALUATION LOGIC *)
 let rec evaluating thing env = 
   match thing with
   | Cons(func, args) ->
@@ -58,6 +57,18 @@ let rec evaluating thing env =
        | _ -> oops "Not a function")
   | Symbol name -> lookup env name
   | _ -> thing
+
+and apply pars args argsEnv body bodyEnv =
+  let rec applying pars args bodyEnv =
+    match pars, args with
+    | Nil, Nil -> evaluating body bodyEnv
+    | Nil, Cons _ -> oops "More arguments than parameters"
+    | Cons _, Nil -> oops "Fewer arguments than parameters"
+    | Cons(Symbol p, ps), Cons(a, as') ->
+        let argVal = evaluating a argsEnv in
+        applying ps as' (envPut p argVal bodyEnv)
+    | _ -> oops "Bad application"
+  in applying pars args bodyEnv
 
 (* EVALUATE. Evaluate THING in the global ENVIRONMENT. *)
 let evaluate thing =
