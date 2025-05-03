@@ -87,13 +87,27 @@ module Evaluator : Evaluatish = struct
   let () =
     primitive "*" (makeArithmetic ( * ) "* expected two numbers");
     primitive "+" (makeArithmetic ( + ) "+ expected two numbers");
-    primitive "-" (makeArithmetic ( - ) "- expected two numbers");
     primitive "/" (makeArithmetic ( / ) "/ expected two numbers");
     primitive "<" (makeRelation (<) "< expected two numbers");
     primitive "<=" (makeRelation (<=) "<= expected two numbers");
     primitive "<>" (makeRelation (<>) "<> expected two numbers");
     primitive ">" (makeRelation (>) "> expected two numbers");
     primitive ">=" (makeRelation (>=) ">= expected two numbers");
+
+    primitive "-"
+      (fun args env ->
+      match args with
+      | Cons(right, Nil) ->
+      (match evaluating right env with
+       | Number right -> Number (-right)
+       | _ -> oops "- expected a number")
+          | Cons(left, Cons(right, Nil)) ->
+          let l = evaluating left env in
+          let r = evaluating right env in
+          (match l, r with
+          | Number l, Number r -> Number (l - r)
+          | _ -> oops "- expected two numbers")
+          | _ -> oops "- expected one or two arguments");
 
     primitive "=" (fun args env ->
       match args with
