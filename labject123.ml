@@ -58,8 +58,8 @@ module Evaluator : Evaluatish = struct
     | Symbol name -> lookup env name
     | _ -> thing
 
-  let evaluate thing = evaluating thing (envMake ())
-
+  let evaluate thing = evaluating thing !global
+  
   (* PRIMITIVE DEFINITIONS *)
   let makeArithmetic op msg = fun args env ->
     match args with
