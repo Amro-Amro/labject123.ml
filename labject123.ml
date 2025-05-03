@@ -40,39 +40,23 @@ module Evaluator : Evaluatish = struct
         oops ("Unbound name " ^ name)))
 
   (* CORE EVALUATION LOGIC *)
-let rec evaluating thing env = 
-  match thing with
-  | Cons(func, args) ->
-      (match evaluating func env with
-       | Closure(params, body, closureEnv) ->
-           let rec apply params args argsEnv bodyEnv =
-             match params, args with
-             | Nil, Nil -> evaluating body bodyEnv
-             | Cons(Symbol p, ps), Cons(a, as') ->
-                 let argVal = evaluating a argsEnv in
-                 apply ps as' argsEnv (envPut p argVal bodyEnv)
-             | _ -> oops "Bad application"
-           in apply params args env closureEnv
-       | Primitive f -> f args env
-       | _ -> oops "Not a function")
-  | Symbol name -> lookup env name
-  | _ -> thing
-
-and apply pars args argsEnv body bodyEnv =
-  let rec applying pars args bodyEnv =
-    match pars, args with
-    | Nil, Nil -> evaluating body bodyEnv
-    | Nil, Cons _ -> oops "More arguments than parameters"
-    | Cons _, Nil -> oops "Fewer arguments than parameters"
-    | Cons(Symbol p, ps), Cons(a, as') ->
-        let argVal = evaluating a argsEnv in
-        applying ps as' (envPut p argVal bodyEnv)
-    | _ -> oops "Bad application"
-  in applying pars args bodyEnv
-
-(* EVALUATE. Evaluate THING in the global ENVIRONMENT. *)
-let evaluate thing =
-  evaluating thing (envMake ())
+  let rec evaluating thing env = 
+    match thing with
+    | Cons(func, args) ->
+        (match evaluating func env with
+         | Closure(params, body, closureEnv) ->
+             let rec apply params args argsEnv bodyEnv =
+               match params, args with
+               | Nil, Nil -> evaluating body bodyEnv
+               | Cons(Symbol p, ps), Cons(a, as') ->
+                   let argVal = evaluating a argsEnv in
+                   apply ps as' argsEnv (envPut p argVal bodyEnv)
+               | _ -> oops "Bad application"
+             in apply params args env closureEnv
+         | Primitive f -> f args env
+         | _ -> oops "Not a function")
+    | Symbol name -> lookup env name
+    | _ -> thing
 
   let evaluate thing = evaluating thing (envMake ())
 
