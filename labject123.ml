@@ -18,16 +18,99 @@ module Evaluator : Evaluatish = struct
   exception EvaluatorError of string
   let oops msg = raise (EvaluatorError msg)
   
-  (* ACTUAL EVALUATOR IMPLEMENTATION FROM TEMPLATE *)
-  (* [Paste full Evaluator implementation here] *)
-  (* ... [Include all original Evaluator code from template] ... *)
+  (* ENVIRONMENT HANDLING *)
+  let rec envGet env name etc =
+    let rec envGetting = function
+      | [] -> etc ()
+      | (n,v)::t -> if n = name then v else envGetting t
+    in envGetting env
+
+  let envMake () = []
+  let envPut name value env = (name, value) :: env
+  let tee = Symbol "t"
+  let global = ref (envMake ())
+  
+  let () = 
+    global := envPut "nil" Nil !global;
+    global := envPut "t" tee !global
+
+  let lookup env name =
+    envGet env name (fun () ->
+      envGet !global name (fun () ->
+        oops ("Unbound name " ^ name)))
+
+  (* CORE EVALUATION LOGIC *)
+  let rec evaluating thing env = 
+    match thing with
+    | Cons(func, args) ->
+        (match evaluating func env with
+         | Closure(params, body, closureEnv) ->
+             let rec apply params args env =
+               match params, args with
+               | Nil, Nil -> evaluating body env
+               | Cons(Symbol p, ps), Cons(a, as') ->
+                   let argVal = evaluating a env
+                   in apply ps as' (envPut p argVal env)
+               | _ -> oops "Bad application"
+             in apply params args closureEnv
+         | Primitive f -> f args env
+         | _ -> oops "Not a function")
+    | Symbol name -> lookup env name
+    | _ -> thing
+
+  let evaluate thing = evaluating thing (envMake ())
+
+  (* PRIMITIVE DEFINITIONS *)
+  let makeArithmetic op msg = (* ... full arithmetic definitions ... *)
+  let makeRelation op msg = (* ... full relation definitions ... *)
+  
+  (* PRIMITIVE FUNCTIONS *)
+  let primitive name howTo = global := envPut name (Primitive howTo) !global
+  primitive "*" (makeArithmetic ( * ) "* expected two numbers")
+  primitive "+" (makeArithmetic (+) "+ expected two numbers")
+  (* ... keep all primitive definitions exactly as in template ... *)
 end
 
 (* ======================== SCANNER ======================== *)
+module type Scannerish =
+sig
+  type token =
+    | CloseParenToken
+    | EndToken
+    | NumberToken of int
+    | OpenParenToken
+    | SymbolToken of string
+  val initialize: string -> unit
+  val nextToken: unit -> token
+end
+
 module Scanner : Scannerish = struct
-  (* ACTUAL SCANNER IMPLEMENTATION FROM TEMPLATE *)
-  (* [Paste full Scanner implementation here] *)
-  (* ... [Include all original Scanner code from template] ... *)
+  type token =
+    | CloseParenToken
+    | EndToken
+    | NumberToken of int
+    | OpenParenToken
+    | SymbolToken of string
+
+  let input = ref stdin
+  let ch = ref ' '
+
+  let nextChar () =
+    try ch := input_char !input
+    with End_of_file -> ch := '\000'
+
+  let initialize path = 
+    input := open_in path;
+    nextChar ()
+
+  let rec nextToken () =
+    match !ch with
+    | ' ' | '\t' | '\n' -> nextChar (); nextToken ()
+    | '(' -> nextChar (); OpenParenToken
+    | ')' -> nextChar (); CloseParenToken
+    | '0'..'9' | '-' -> (* ... number parsing logic ... *)
+    | ';' -> (* ... comment handling ... *)
+    | _ -> (* ... symbol parsing logic ... *)
 end
 
 (* ======================== PARSER (PROJECT 2) ======================== *)
