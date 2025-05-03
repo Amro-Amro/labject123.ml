@@ -253,6 +253,8 @@ let evaluate thing =
     match args with
     | Cons(arg, Nil) -> arg
     | _ -> oops "QUOTE expected one argument");
+    
+  primitive "error" (fun args _ -> oops "Error called");
 end
 
 (* ======================== SCANNER ======================== *)
