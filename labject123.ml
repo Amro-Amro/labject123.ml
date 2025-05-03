@@ -58,7 +58,7 @@ module Evaluator : Evaluatish = struct
     | Symbol name -> lookup env name
     | _ -> thing
 
-  let evaluate thing = evaluating thing (envMake ())
+  let evaluate thing = evaluating thing !global
 
   (* PRIMITIVE DEFINITIONS *)
   let makeArithmetic op msg = fun args env ->
@@ -248,6 +248,18 @@ module Evaluator : Evaluatish = struct
     match args with
     | Cons(arg, Nil) -> arg
     | _ -> oops "QUOTE expected one argument");
+
+  primitive "lambda" (fun args env ->
+    match args with
+    | Cons(params, Cons(body, Nil)) ->
+        let rec valid_params = function
+          | Nil -> true
+          | Cons(Symbol _, rest) -> valid_params rest
+          | _ -> false
+        in if valid_params params 
+        then Closure(params, body, !global)  (* Capture global env *)
+        else oops "LAMBDA invalid parameters"
+    | _ -> oops "LAMBDA expected parameter list and body");  
     
   primitive "error" (fun args _ -> oops "Error called");
 end
