@@ -16,10 +16,6 @@ end ;;
 
 module Evaluator : Evaluatish = struct
   exception EvaluatorError of string
-  let evaluate _ = (* ... your implementation ... *)
-end ;;
-module Evaluator : Evaluatish = struct
-  exception EvaluatorError of string
   let oops msg = raise (EvaluatorError msg)
   
   (* ENVIRONMENT HANDLING *)
@@ -230,6 +226,18 @@ module Evaluator : Evaluatish = struct
 end
 
 (* ======================== SCANNER ======================== *)
+module type Scannerish =
+sig
+  type token =
+    | CloseParenToken
+    | EndToken
+    | NumberToken of int
+    | OpenParenToken
+    | SymbolToken of string
+  val initialize : string -> unit
+  val nextToken : unit -> token
+end ;;
+
 module Scanner : Scannerish = struct
   type token =
     | CloseParenToken
