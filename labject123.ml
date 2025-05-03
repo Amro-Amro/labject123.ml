@@ -76,29 +76,30 @@ module Evaluator : Evaluatish = struct
     | _ -> oops msg
   
   (* PRIMITIVE FUNCTIONS *)
-  let primitive name howTo = global := envPut name (Primitive howTo) !global
-  
-  primitive "*" (makeArithmetic ( * ) "* expected two numbers");
-  primitive "+" (makeArithmetic ( + ) "+ expected two numbers");
-  primitive "-" (makeArithmetic ( - ) "- expected two numbers");
-  primitive "/" (makeArithmetic ( / ) "/ expected two numbers");
-  primitive "<" (makeRelation ( < ) "< expected two numbers");
-  primitive "<=" (makeRelation ( <= ) "<= expected two numbers");
-  primitive "<>" (makeRelation ( <> ) "<> expected two numbers");
-  primitive ">" (makeRelation ( > ) "> expected two numbers");
-  primitive ">=" (makeRelation ( >= ) ">= expected two numbers");
+   let primitive name howTo = global := envPut name (Primitive howTo) !global
 
-  primitive "=" (fun args env ->
-    match args with
-    | Cons(left, Cons(right, Nil)) ->
-        let l = evaluating left env in
-        let r = evaluating right env in
-        (match l, r with
-        | Nil, Nil -> tee
-        | Number l, Number r when l = r -> tee
-        | Symbol l, Symbol r when l = r -> tee
-        | _ -> Nil)
-    | _ -> oops "= expected two arguments");
+  let () =
+    primitive "*" (makeArithmetic ( * ) "* expected two numbers");
+    primitive "+" (makeArithmetic ( + ) "+ expected two numbers");
+    primitive "-" (makeArithmetic ( - ) "- expected two numbers");
+    primitive "/" (makeArithmetic ( / ) "/ expected two numbers");
+    primitive "<" (makeRelation (<) "< expected two numbers");
+    primitive "<=" (makeRelation (<=) "<= expected two numbers");
+    primitive "<>" (makeRelation (<>) "<> expected two numbers");
+    primitive ">" (makeRelation (>) "> expected two numbers");
+    primitive ">=" (makeRelation (>=) ">= expected two numbers");
+
+    primitive "=" (fun args env ->
+      match args with
+      | Cons(left, Cons(right, Nil)) ->
+          let l = evaluating left env in
+          let r = evaluating right env in
+          (match l, r with
+          | Nil, Nil -> tee
+          | Number l, Number r when l = r -> tee
+          | Symbol l, Symbol r when l = r -> tee
+          | _ -> Nil)
+      | _ -> oops "= expected two arguments");
 
   primitive "and" (fun args env ->
     let rec anding = function
