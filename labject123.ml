@@ -8,6 +8,12 @@ type thing =
 and environment = (string * thing) list
 
 (* ======================== EVALUATOR ======================== *)
+module type Evaluatish =
+sig
+  val evaluate: thing -> thing
+  exception EvaluatorError of string
+end
+
 module Evaluator : Evaluatish = struct
   (* ... [Keep original Evaluator implementation exactly as provided] ... *)
 end
