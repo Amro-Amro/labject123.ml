@@ -8,12 +8,6 @@ type thing =
 and environment = (string * thing) list
 
 (* ======================== EVALUATOR ======================== *)
-module type Evaluatish =
-sig
-  val evaluate: thing -> thing
-  exception EvaluatorError of string
-end
-
 module Evaluator : Evaluatish = struct
   exception EvaluatorError of string
   let oops msg = raise (EvaluatorError msg)
@@ -61,29 +55,170 @@ module Evaluator : Evaluatish = struct
   let evaluate thing = evaluating thing (envMake ())
 
   (* PRIMITIVE DEFINITIONS *)
-  let makeArithmetic op msg = (* ... full arithmetic definitions ... *)
-  let makeRelation op msg = (* ... full relation definitions ... *)
+  let makeArithmetic op msg = fun args env ->
+    match args with
+    | Cons(left, Cons(right, Nil)) ->
+        let l = evaluating left env in
+        let r = evaluating right env in
+        (match l, r with
+         | Number l, Number r -> Number (op l r)
+         | _ -> oops msg)
+    | _ -> oops msg
+
+  let makeRelation op msg = fun args env ->
+    match args with
+    | Cons(left, Cons(right, Nil)) ->
+        let l = evaluating left env in
+        let r = evaluating right env in
+        (match l, r with
+         | Number l, Number r -> if op l r then tee else Nil
+         | _ -> oops msg)
+    | _ -> oops msg
   
   (* PRIMITIVE FUNCTIONS *)
   let primitive name howTo = global := envPut name (Primitive howTo) !global
-  primitive "*" (makeArithmetic ( * ) "* expected two numbers")
-  primitive "+" (makeArithmetic (+) "+ expected two numbers")
-  (* ... keep all primitive definitions exactly as in template ... *)
+  
+  primitive "*" (makeArithmetic ( * ) "* expected two numbers");
+  primitive "+" (makeArithmetic (+) "+ expected two numbers");
+  primitive "-" (makeArithmetic (-) "- expected two numbers");
+  primitive "/" (makeArithmetic (/) "/ expected two numbers");
+  primitive "<" (makeRelation (<) "< expected two numbers");
+  primitive "<=" (makeRelation (<=) "<= expected two numbers");
+  primitive "<>" (makeRelation (<>) "<> expected two numbers");
+  primitive ">" (makeRelation (>) "> expected two numbers");
+  primitive ">=" (makeRelation (>=) ">= expected two numbers");
+
+  primitive "=" (fun args env ->
+    match args with
+    | Cons(left, Cons(right, Nil)) ->
+        let l = evaluating left env in
+        let r = evaluating right env in
+        (match l, r with
+        | Nil, Nil -> tee
+        | Number l, Number r when l = r -> tee
+        | Symbol l, Symbol r when l = r -> tee
+        | _ -> Nil)
+    | _ -> oops "= expected two arguments");
+
+  primitive "and" (fun args env ->
+    let rec anding = function
+      | Nil -> tee
+      | Cons(arg, Nil) -> evaluating arg env
+      | Cons(arg, rest) ->
+          if evaluating arg env = Nil then Nil
+          else anding rest
+      | _ -> oops "AND expected list" 
+    in anding args);
+
+  primitive "car" (fun args env ->
+    match args with
+    | Cons(arg, Nil) ->
+        (match evaluating arg env with
+         | Cons(first, _) -> first
+         | _ -> oops "CAR expected CONS")
+    | _ -> oops "CAR expected one argument");
+
+  primitive "cdr" (fun args env ->
+    match args with
+    | Cons(arg, Nil) ->
+        (match evaluating arg env with
+         | Cons(_, rest) -> rest
+         | _ -> oops "CDR expected CONS")
+    | _ -> oops "CDR expected one argument");
+
+  primitive "cons" (fun args env ->
+    match args with
+    | Cons(first, Cons(rest, Nil)) ->
+        let f = evaluating first env in
+        let r = evaluating rest env in
+        Cons(f, r)
+    | _ -> oops "CONS expected two arguments");
+
+  primitive "define" (fun args env ->
+    match args with
+    | Cons(Symbol name, Cons(value, Nil)) ->
+        let v = evaluating value env in
+        global := envPut name v !global;
+        Symbol name
+    | _ -> oops "DEFINE expected symbol and value");
+
+  primitive "if" (fun args env ->
+    match args with
+    | Cons(test, Cons(then_expr, Cons(else_expr, Nil))) ->
+        if evaluating test env = Nil
+        then evaluating else_expr env
+        else evaluating then_expr env
+    | _ -> oops "IF expected three arguments");
+
+  primitive "is-cons" (fun args env ->
+    match args with
+    | Cons(arg, Nil) ->
+        (match evaluating arg env with
+         | Cons _ -> tee | _ -> Nil)
+    | _ -> oops "IS-CONS expected one argument");
+
+  primitive "is-function" (fun args env ->
+    match args with
+    | Cons(arg, Nil) ->
+        (match evaluating arg env with
+         | Primitive _ | Closure _ -> tee | _ -> Nil)
+    | _ -> oops "IS-FUNCTION expected one argument");
+
+  primitive "is-number" (fun args env ->
+    match args with
+    | Cons(arg, Nil) ->
+        (match evaluating arg env with
+         | Number _ -> tee | _ -> Nil)
+    | _ -> oops "IS-NUMBER expected one argument");
+
+  primitive "is-symbol" (fun args env ->
+    match args with
+    | Cons(arg, Nil) ->
+        (match evaluating arg env with
+         | Symbol _ | Nil -> tee | _ -> Nil)
+    | _ -> oops "IS-SYMBOL expected one argument");
+
+  primitive "lambda" (fun args env ->
+    match args with
+    | Cons(params, Cons(body, Nil)) ->
+        let rec valid_params = function
+          | Nil -> true
+          | Cons(Symbol _, rest) -> valid_params rest
+          | _ -> false
+        in if valid_params params 
+        then Closure(params, body, env)
+        else oops "LAMBDA invalid parameters"
+    | _ -> oops "LAMBDA expected parameter list and body");
+
+  primitive "list" (fun args env ->
+    let rec build_list = function
+      | Nil -> Nil
+      | Cons(h, t) -> Cons(evaluating h env, build_list t)
+      | _ -> oops "LIST invalid arguments"
+    in build_list args);
+
+  primitive "not" (fun args env ->
+    match args with
+    | Cons(arg, Nil) ->
+        if evaluating arg env = Nil then tee else Nil
+    | _ -> oops "NOT expected one argument");
+
+  primitive "or" (fun args env ->
+    let rec oring = function
+      | Nil -> Nil
+      | Cons(arg, rest) ->
+          let value = evaluating arg env in
+          if value <> Nil then value else oring rest
+      | _ -> oops "OR invalid arguments"
+    in oring args);
+
+  primitive "quote" (fun args _ ->
+    match args with
+    | Cons(arg, Nil) -> arg
+    | _ -> oops "QUOTE expected one argument");
 end
 
 (* ======================== SCANNER ======================== *)
-module type Scannerish =
-sig
-  type token =
-    | CloseParenToken
-    | EndToken
-    | NumberToken of int
-    | OpenParenToken
-    | SymbolToken of string
-  val initialize: string -> unit
-  val nextToken: unit -> token
-end
-
 module Scanner : Scannerish = struct
   type token =
     | CloseParenToken
@@ -103,14 +238,39 @@ module Scanner : Scannerish = struct
     input := open_in path;
     nextChar ()
 
+  let rec nextComment () =
+    match !ch with
+    | '\000' | '\n' -> nextChar ()
+    | _ -> nextChar (); nextComment ()
+
   let rec nextToken () =
     match !ch with
+    | '\000' -> EndToken
     | ' ' | '\t' | '\n' -> nextChar (); nextToken ()
     | '(' -> nextChar (); OpenParenToken
     | ')' -> nextChar (); CloseParenToken
-    | '0'..'9' | '-' -> (* ... number parsing logic ... *)
-    | ';' -> (* ... comment handling ... *)
-    | _ -> (* ... symbol parsing logic ... *)
+    | ';' -> nextComment (); nextToken ()
+    | '0'..'9' | '-' ->
+        let buffer = Buffer.create 16 in
+        Buffer.add_char buffer !ch;
+        nextChar ();
+        while !ch >= '0' && !ch <= '9' do
+          Buffer.add_char buffer !ch;
+          nextChar ()
+        done;
+        NumberToken (int_of_string (Buffer.contents buffer))
+    | _ ->
+        let buffer = Buffer.create 16 in
+        Buffer.add_char buffer !ch;
+        nextChar ();
+        while match !ch with
+              | ' ' | '\t' | '\n' | '(' | ')' | '\000' -> false
+              | _ -> true
+        do
+          Buffer.add_char buffer !ch;
+          nextChar ()
+        done;
+        SymbolToken (Buffer.contents buffer)
 end
 
 (* ======================== PARSER (PROJECT 2) ======================== *)
