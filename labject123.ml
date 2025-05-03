@@ -203,23 +203,30 @@ struct
   let handle_file filename =
     try
       Parser.initialize filename;
-      let rec loop() =
+      let rec loop () =
         try
-          let expr = Parser.nextThing() in
+          let expr = Parser.nextThing () in
           if expr = Symbol "end" then ()
-          else
+          else (
             let result = Evaluator.evaluate expr in
             Printer.printThing result;
-            loop()
+            loop ()
+          )
         with
         | Evaluator.EvaluatorError msg ->
-            Printf.printf "%s: Eval error - %s\n" filename msg; loop()
+            Printf.printf "%s: Evaluator error %s\n" filename msg;
+            loop ()
         | Parser.Can'tParse msg ->
-            Printf.printf "%s: Parse error - %s\n" filename msg; loop()
+            Printf.printf "%s: Parser error %s\n" filename msg;
+            loop ()
         | Printer.BadThing ->
-            Printf.printf "%s: Print error\n" filename; loop()
+            Printf.printf "%s: Printer error\n" filename;
+            loop ()
         | _ ->
-            Printf.printf "%s: Unknown error\n" filename; loop()
+            Printf.printf "%s: Internal error\n" filename;
+            loop ()
+      in
+      loop ()
     with
     | Sys_error msg -> Printf.printf "File error: %s\n" msg
     | _ -> Printf.printf "%s: Initialization error\n" filename
@@ -228,4 +235,5 @@ struct
 end
 
 let () = Lisp.repl ()
+
 
