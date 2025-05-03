@@ -15,12 +15,19 @@ sig
 end
 
 module Evaluator : Evaluatish = struct
-  (* ... [Keep original Evaluator implementation exactly as provided] ... *)
+  exception EvaluatorError of string
+  let oops msg = raise (EvaluatorError msg)
+  
+  (* ACTUAL EVALUATOR IMPLEMENTATION FROM TEMPLATE *)
+  (* [Paste full Evaluator implementation here] *)
+  (* ... [Include all original Evaluator code from template] ... *)
 end
 
 (* ======================== SCANNER ======================== *)
 module Scanner : Scannerish = struct
-  (* ... [Keep original Scanner implementation exactly as provided] ... *)
+  (* ACTUAL SCANNER IMPLEMENTATION FROM TEMPLATE *)
+  (* [Paste full Scanner implementation here] *)
+  (* ... [Include all original Scanner code from template] ... *)
 end
 
 (* ======================== PARSER (PROJECT 2) ======================== *)
