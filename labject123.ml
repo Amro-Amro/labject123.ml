@@ -79,14 +79,14 @@ module Evaluator : Evaluatish = struct
   let primitive name howTo = global := envPut name (Primitive howTo) !global
   
   primitive "*" (makeArithmetic ( * ) "* expected two numbers");
-  primitive "+" (makeArithmetic (+) "+ expected two numbers");
-  primitive "-" (makeArithmetic (-) "- expected two numbers");
-  primitive "/" (makeArithmetic (/) "/ expected two numbers");
-  primitive "<" (makeRelation (<) "< expected two numbers");
-  primitive "<=" (makeRelation (<=) "<= expected two numbers");
-  primitive "<>" (makeRelation (<>) "<> expected two numbers");
-  primitive ">" (makeRelation (>) "> expected two numbers");
-  primitive ">=" (makeRelation (>=) ">= expected two numbers");
+  primitive "+" (makeArithmetic ( + ) "+ expected two numbers");
+  primitive "-" (makeArithmetic ( - ) "- expected two numbers");
+  primitive "/" (makeArithmetic ( / ) "/ expected two numbers");
+  primitive "<" (makeRelation ( < ) "< expected two numbers");
+  primitive "<=" (makeRelation ( <= ) "<= expected two numbers");
+  primitive "<>" (makeRelation ( <> ) "<> expected two numbers");
+  primitive ">" (makeRelation ( > ) "> expected two numbers");
+  primitive ">=" (makeRelation ( >= ) ">= expected two numbers");
 
   primitive "=" (fun args env ->
     match args with
